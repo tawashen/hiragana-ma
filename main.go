@@ -154,3 +154,74 @@ func loadGameData(filename string) (*GameData, error) {
 
 	return &data, nil
 }
+
+
+func main() {
+
+	p := tea.NewProgram(initialModel())
+	if _,err := p.Run(); err != nil {
+		fmt.Printf("error &v", err)
+	}
+}
+
+func initialModel() Model {
+	player1 := Player {
+		Name: "Player1",
+		Tehai: nil,
+		Kawa: []rune{},
+		Score: 0,
+		RichiFlag: false,
+	}
+
+		player2 := Player {
+		Name: "Player2",
+		Tehai: nil,
+		Kawa: []rune{},
+		Score: 0,
+		RichiFlag: false,
+	}
+
+	yama := createYama()
+
+
+	m := Model{
+		Player1: player1,
+		Player2: player2,
+		Yama: yama,
+		WordDic: make(map[string]*Word),
+		YakuDic: make(map[string]*Yaku),
+		WordYakuDic: []WordYaku{},
+		CurrentPlayer: 1,
+		Phase: "ツモ",
+		}
+
+		return m
+
+	}
+
+func (m Model) View() string {
+	var s strings.Builder
+
+	s.WriteString(playerStyle.Render("Playser2 information\n"))
+	s.WriteString(textStyle.Render("Playser2 river"\n))
+	s.WriteString("\n\n\n")
+
+	s.WriteString(textStyle.Render("　　　　Turn:%s\n", m.Turn, m.Phase))
+	s.WriteString(textStyle.Render("　　　　Phase:%s\n")
+	s.WriteString("\n")
+	//メニュー表示枠
+	s.WriteString("\n\n\n")
+
+	kawa
+	s.WriteString(textStyle.Render(""))
+)
+
+}
+
+
+var (
+	textStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#000000"))
+	playerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Background(lipgloss.Color("#000000"))
+	//waterStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
+	//mtStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#8B4513"))
+)
