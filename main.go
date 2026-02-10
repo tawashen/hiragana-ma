@@ -270,6 +270,8 @@ func (m Model) View() string {
     // メニュー表示枠
     s.WriteString("\n\n\n")
     
+
+	/*
     // 誤: kawaはstring型なのにappendを使っている（appendはスライス用）
     // 正: 文字列連結には += または strings.Builder を使う
     kawa := ""
@@ -289,6 +291,23 @@ func (m Model) View() string {
 	s.WriteString(playerStyle.Render("Player1 information\n"))
     
     return s.String() // 最後にstring()で文字列を返す必要がある
+*/
+
+    kawaBuilder := strings.Builder{}
+    for _, r := range m.Player1.Tehai.Bara {
+        kawaBuilder.WriteString(paiStyle.Render(string(r)))
+        kawaBuilder.WriteString(" ") // 牌の間にスペース
+    }
+    
+    for _, g := range m.Player1.Tehai.Groups {
+        kawaBuilder.WriteString(wordStyle.Render(g.Word))
+        kawaBuilder.WriteString(" ")
+    }
+    
+    s.WriteString(kawaBuilder.String())
+    
+    return s.String()
+
 }
 
 
@@ -298,6 +317,37 @@ var (
 	//waterStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
 	//mtStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#8B4513"))
 )
+
+	// 基本的な枠付きスタイルの作り方
+var boxStyle = lipgloss.NewStyle().
+    Border(lipgloss.RoundedBorder()). // 角丸の枠
+    BorderForeground(lipgloss.Color("255")). // 枠の色（白）
+    Padding(1, 2) // 内側の余白（上下1、左右2）
+
+var paiStyleWithBorder = lipgloss.NewStyle().
+    Border(lipgloss.NormalBorder()).       // 枠を付ける
+    BorderForeground(lipgloss.Color("240")). // グレーの枠
+    Background(lipgloss.Color("255")).     // 白い背景
+    Foreground(lipgloss.Color("0")).       // 黒い文字
+    Width(2).
+    Align(lipgloss.Center).
+    Bold(true)
+
+	var paiStyle = lipgloss.NewStyle().
+    Background(lipgloss.Color("255")).     // 白い背景
+    Foreground(lipgloss.Color("0")).       // 黒い文字
+    Width(2).                              // 全角1文字分の幅
+    Align(lipgloss.Center).                // 中央揃え
+	//Padding(0, 0).
+	//PaddingRight(1).
+    Bold(true)                             // 太字で見やすく
+
+	// 単語用：同じく白背景に黒文字
+var wordStyle = lipgloss.NewStyle().
+    Background(lipgloss.Color("255")).     // 白い背景
+    Foreground(lipgloss.Color("0")).       // 黒い文字
+    Padding(0, 1).                         // 左右に余白
+    Bold(true)
 
 
 /*
