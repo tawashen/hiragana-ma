@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"sort" // 修正: CreateGroup関数でsort.Sortを使用しているため追加
 	"strings"
 	//"strconv"
 	"time"
@@ -20,8 +21,8 @@ type Yaku struct {
 
 type Word struct {
 	Text string //単語の文字列
-	Runes []rune //構成文字（サジェスト用）
-	RegisteredBy string //登録したプレイヤー名
+	Pais []string //構成文字（サジェスト用）
+	//RegisteredBy string //登録したプレイヤー名
 }
 
 type WordYaku struct {
@@ -34,7 +35,7 @@ type WordYaku struct {
 type Model struct {
 	Player1 *Player
 	Player2 *Player
-	Yama []rune //山札（50音×4セット）
+	Yama []string // 修正: []rune → []string（山札を文字列スライスで管理）
 	WordDic map[string]*Word //有効なワード辞書（プレイヤーが登録）
 	YakuDic map[string]*Yaku //役名→役情報
 	WordYakuDic []WordYaku //単語と役の紐付け履歴（学習データ）
@@ -42,46 +43,47 @@ type Model struct {
 	Turn int
 	Phase string //ツモ、捨て牌、グループ作成、上がり判定など
     TumoHai string
-	Alphabet string
+	Alphabet []string
+	InputBuffer string
 }
 
 type Player struct {
 	Name string
 	Tehai *Tehai
-	Kawa []rune //このプレイヤーの捨て牌
+	Kawa []string // 修正: []rune → []string（捨て牌を文字列スライスで管理）
 	Score int
 	RichiFlag bool //リーチ的な何か用
 }
 
 type Tehai struct {
-	Bara []rune //未グループ化の牌
+	Bara []string // 修正: []rune → []string（未グループ化の牌を文字列スライスで管理）
 	Groups []Group //グループ化された単語
 }
 
 type Group struct {
 	Word string //グループ化された文字列
-	Runes []rune //構成文字
-	IsNaki bool //鳴き（相手の捨て牌から取った）
-	NakiFrom string //誰から鳴いたか（プレイヤー名）
+	Pais []string //構成文字
+	Comp bool //単語として登録するか？
+	//NakiFrom string //誰から鳴いたか（プレイヤー名）
 }
 
 // 山札を初期化する関数
-func createYama() []rune {
-	// 50音（清音のみ）
-	gojuon := []rune{
-		'あ', 'い', 'う', 'え', 'お',
-		'か', 'き', 'く', 'け', 'こ',
-		'さ', 'し', 'す', 'せ', 'そ',
-		'た', 'ち', 'つ', 'て', 'と',
-		'な', 'に', 'ぬ', 'ね', 'の',
-		'は', 'ひ', 'ふ', 'へ', 'ほ',
-		'ま', 'み', 'む', 'め', 'も',
-		'や', 'ゆ', 'よ',
-		'ら', 'り', 'る', 'れ', 'ろ',
-		'わ', 'を', 'ん',
+func createYama() []string {
+	// 修正: []rune → []string（50音を文字列スライスで管理）
+	gojuon := []string{
+		"あ", "い", "う", "え", "お",
+		"か", "き", "く", "け", "こ",
+		"さ", "し", "す", "せ", "そ",
+		"た", "ち", "つ", "て", "と",
+		"な", "に", "ぬ", "ね", "の",
+		"は", "ひ", "ふ", "へ", "ほ",
+		"ま", "み", "む", "め", "も",
+		"や", "ゆ", "よ",
+		"ら", "り", "る", "れ", "ろ",
+		"わ", "を", "ん",
 	}
 
-	yama := []rune{}
+	yama := []string{}
 
 	// 50音を4セット追加
 	for i := 0; i < 4; i++ {
@@ -90,17 +92,17 @@ func createYama() []rune {
 
 	// 濁点（゛）を10枚
 	for i := 0; i < 10; i++ {
-		yama = append(yama, '゛')
+		yama = append(yama, "゛")
 	}
 
 	// 半濁点（゜）を10枚
 	for i := 0; i < 10; i++ {
-		yama = append(yama, '゜')
+		yama = append(yama, "゜")
 	}
 
 	// 伸ばし棒（ー）を10枚
 	for i := 0; i < 10; i++ {
-		yama = append(yama, 'ー')
+		yama = append(yama, "ー")
 	}
 
 	// シャッフル
@@ -163,7 +165,7 @@ func main() {
 
 	p := tea.NewProgram(initialModel())
 	if _,err := p.Run(); err != nil {
-		fmt.Printf("error &v", err)
+		fmt.Printf("error %v", err) // 修正: &v → %v（フォーマット指定子の誤り）
 	}
 }
 
@@ -171,10 +173,10 @@ func initialModel() Model {
 	player1 := Player {
 		Name: "Player1",
         Tehai: &Tehai{
-            Bara: []rune{},
+            Bara: []string{}, // 修正: []rune{} → []string{}
             Groups: []Group{},
         },
-		Kawa: []rune{},
+		Kawa: []string{}, // 修正: []rune{} → []string{}
 		Score: 0,
 		RichiFlag: false,
 	}
@@ -182,10 +184,10 @@ func initialModel() Model {
 		player2 := Player {
 		Name: "Player2",
         Tehai: &Tehai{
-            Bara: []rune{},
+            Bara: []string{}, // 修正: []rune{} → []string{}
             Groups: []Group{},
         },
-		Kawa: []rune{},
+		Kawa: []string{}, // 修正: []rune{} → []string{}
 		Score: 0,
 		RichiFlag: false,
 	}
@@ -205,8 +207,9 @@ func initialModel() Model {
 		CurrentPlayer: 1,
 		Turn: 1,
 		Phase: "ツモ前",
-		TumoHai: ""
-		Alphabet: ""
+		TumoHai: "",
+		Alphabet: []string{},  // 誤: "" → 正: []string{}（空のスライス）
+		InputBuffer: "",
 		}
 
 		return m
@@ -246,25 +249,26 @@ func (m Model) View() string {
 	menu := ""
 	switch m.Phase {
 	case "ツモ前":
-		menu = "１：ツモ　２：単語作り　３：チー？"
+		menu = "１：ツモ"
 		//チーはツモ牌表示前のみ可能
 		//だけど無限に長くするということなら一旦はグループ扱いにしなければならないわけで、そうなると単語確定とグループ化を分ける必要があると今更気づいた
 		//つまり単語登録は上がった時にのみまとめて登録されるようにしないといかんか
 		//チー？の後はツモ出来ずに次のプレイヤーへ？
 	case "ツモ中":
 		menu = "１：スルー　アルファベット：捨て牌"
-	case "グループ作り":
+	case "グループ化":
 		menu = "１：終了　アルファベット：選択"
-		//1文字じゃなくて3文字まで一度で選択とか可能なのか？
+	case "単語化？":
+		menu = "Ｙ：単語登録　その他：グループ化のみ" 
 	}
-	s.WriteString(textStyle.Render(fmt.Sprintf))
+	s.WriteString(textStyle.Render(fmt.Sprintf("%s\n", menu)))
     
     s.WriteString("\n\n\n")
     
 
     kawaBuilder := strings.Builder{}
-    for _, r := range m.Player1.Tehai.Bara {
-        kawaBuilder.WriteString(paiStyle.Render(string(r)))
+    for _, pai := range m.Player1.Tehai.Bara {
+        kawaBuilder.WriteString(paiStyle.Render(pai)) // 修正: string(r) → pai（既にstring型）
         kawaBuilder.WriteString(" ") // 牌の間にスペース
     }
     
@@ -273,8 +277,14 @@ func (m Model) View() string {
         kawaBuilder.WriteString(" ")
     }
 
-	//選択用アルファベットはいつでも表示にしておく
-	s.WriteString(paiStyle.Render(m.Alphabet))
+	// 修正: 選択用アルファベットを1つずつ表示
+	alphabetBuilder := strings.Builder{}
+	for _, alpha := range m.Alphabet {
+		alphabetBuilder.WriteString(paiStyle.Render(alpha))
+		alphabetBuilder.WriteString(" ")
+	}
+	s.WriteString(alphabetBuilder.String())
+	s.WriteString("\n")
 	
     
     s.WriteString(kawaBuilder.String())
@@ -337,60 +347,125 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
             switch msg.String() {
             case "1"://ツモへ
                 return m.Tumo(), nil
-            case "2"://単語作りへ
-                return m.MakeWord(), nil
+//            case "2"://単語作りへ
+//                return m.MakeWord(), nil
             }
         }
         
         if m.Phase == "ツモ中" {
-            // m.Alphabetを使って判定（MakeWordで生成したもの）
+            // 修正: m.Alphabetを使って判定（[]stringになった）
             key := msg.String()
+			if key == "1" {//スルー
+				m.Phase = "グループ化"
+				m.TumoHai = ""
+				return m, nil
+			}
             for i, alpha := range m.Alphabet {
                 if key == alpha {
                     return m.DiscardPai(i), nil
                 }
             }
         }
-    }
+
+
+		if m.Phase == "単語化？" {
+			switch msg.String() {
+			case "y", "Y":
+				m = m.CreateGroup(m.InputBuffer, true)
+				m.InputBuffer = ""
+				m.Phase = "グループ化"
+				return m, nil
+
+			default:
+				m = m.CreateGroup(m.InputBuffer, false)
+				m.InputBuffer = ""
+				m.Phase = "グループ化"
+				return m, nil
+			}
+		}
+
+		if m.Phase == "グループ化" {
+			switch msg.String() {
+			case "1":
+				m.Phase = "ツモ前"
+				m.CurrentPlayer = 1
+				return m, nil
+
+			case "enter":
+				//if len(m.InputBuffer) == 3 {
+				//m = m.CreateGroup(m.InputBuffer)
+				//m.InputBuffer = ""
+				m.Phase = "単語化？"
+				//}
+				
+				return m, nil
+
+
+			case "backspace":
+				if len(m.InputBuffer) > 0 {
+					m.InputBuffer = m.InputBuffer[:len(m.InputBuffer)-1]
+				}
+				return m, nil
+			
+			default:
+           		key := msg.String()
+				for _, alpha := range m.Alphabet {
+					// 修正: alphaは既にstring型
+					if key == alpha {
+						m.InputBuffer += key
+						break
+					}
+				}
+				return m, nil
+			
+			}
+    	}
+	}
     return m, nil
 }
 
 
-func (m *Model) DiscardPai(index) Model {
-	m.Player1.Tehai = append(m.Player1.Tehai[:index], m.Player1.Tehai[index+1:]...)
-	m.Playser1.Tehai = append(m.Player1.Tehai, m.TumoHai)
+func (m *Model) DiscardPai(index int) Model {
+	m.Player1.Tehai.Bara = append(m.Player1.Tehai.Bara[:index], m.Player1.Tehai.Bara[index+1:]...)
+	// 修正: TumoHaiは既にstring型なのでそのまま追加
+	if m.TumoHai != "" {
+		m.Player1.Tehai.Bara = append(m.Player1.Tehai.Bara, m.TumoHai)
+	}
 	m.TumoHai = ""
-	m.Phase = "グループ作り"
+	m.Phase = "グループ化"
+	return *m
 }
 
 func (m *Model) Tumo() Model {
 	m.Phase = "ツモ中"
-    m.TumoHai = string(m.Yama[0])
+    m.TumoHai = m.Yama[0]
 	m.Yama = m.Yama[1:]
 
-    alphabet := []rune{'Ａ', 'Ｂ', 'Ｃ', 'Ｄ', 'Ｅ', 'Ｆ', 'Ｇ', 'Ｈ', 'Ｉ', 'Ｊ', 'Ｋ', 'Ｌ', 'Ｍ', 'Ｎ'}
+    // 修正: 半角アルファベットを使用（キーボード入力に対応）
+    alphabet := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
     
     ab := []string{}
     for i := range m.Player1.Tehai.Bara {
-        ab = append(ab, string(alphabet[i]))
+        ab = append(ab, alphabet[i])
     }
     
-    m.Alphabet = ab//選択表示用アルファベット文字列
+    m.Alphabet = ab  // 選択表示用アルファベット文字列スライス
 	return *m
 }
 
 
 func (m *Model) MakeWord() Model {
-    m.Phase = "グループ作り"//のための文字列スライスをModelに埋める
+    m.Phase = "グループ化"  // のための文字列スライスをModelに埋める
     
-    alphabet := []rune{'Ａ', 'Ｂ', 'Ｃ', 'Ｄ', 'Ｅ', 'Ｆ', 'Ｇ', 'Ｈ', 'Ｉ', 'Ｊ', 'Ｋ', 'Ｌ', 'Ｍ', 'Ｎ'}
+    // 修正: 半角アルファベットを使用（キーボード入力に対応）
+    alphabet := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
     
     ab := []string{}
     for i := range m.Player1.Tehai.Bara {
-        ab = append(ab, string(alphabet[i]))
+        ab = append(ab, alphabet[i])
     }
     
-    m.Alphabet = ab//選択表示用アルファベット文字列
+    m.Alphabet = ab  // 選択表示用アルファベット文字列スライス
     return *m
 }
 
@@ -401,6 +476,7 @@ func (m Model) Init() tea.Cmd {
 }
 
 
+/*
 ツモ前
 　１：ツモ　２：単語作り
 　　ツモ　メソッド　→ツモ後
@@ -412,69 +488,31 @@ func (m Model) Init() tea.Cmd {
 　　１：捨て牌選び　２：単語作り
 　　　捨て牌選び　メソッド　→単語作り
 　単語作り　メソッド　
-　　１：A~H？（グループ数による）　２：終了
+　　１：A~H？（数による）　２：終了
 　上がり　メソッド
 
-type Model struct {
-    // ... 他のフィールド ...
-    InputBuffer string  // キー入力を溜めるバッファ
-    Phase string
-}
+*/
 
-func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-    switch msg := msg.(type) {
-    case tea.KeyMsg:
-        key := msg.String()
-        
-        if m.Phase == "グループ化" {
-            switch key {
-            case "ctrl+c", "q", "esc":
-                return m, tea.Quit
-            
-            case "enter":
-                // Enterで確定：バッファの内容を処理
-                if len(m.InputBuffer) > 0 {
-                    m = m.CreateGroup(m.InputBuffer)
-                    m.InputBuffer = ""  // バッファをクリア
-                }
-                return m, nil
-            
-            case "backspace":
-                // バックスペースで1文字削除
-                if len(m.InputBuffer) > 0 {
-                    m.InputBuffer = m.InputBuffer[:len(m.InputBuffer)-1]
-                }
-                return m, nil
-            
-            default:
-                // a~nなどの有効なキーならバッファに追加
-                for _, alpha := range m.Alphabet {
-                    if key == alpha {
-                        m.InputBuffer += key
-                        break
-                    }
-                }
-                return m, nil
-            }
-        }
-    }
-    return m, nil
-}
+
 
 // バッファの内容から面子を作る
-func (m *Model) CreateGroup(buffer string) Model {
+func (m *Model) CreateGroup(buffer string, comp bool) Model {
+
     group := Group{
         Word: "",
         Pais: []string{},
+		Comp: comp,
     }
     
-    // バッファの各文字（a, b, c...）をインデックスに変換
+    // 修正: 半角アルファベット（a-n）をインデックスに変換
     indices := []int{}
     for _, char := range buffer {
-        // 'a' = 0, 'b' = 1, 'c' = 2...
-        index := int(char - 'a')
-        if index >= 0 && index < len(m.Player1.Tehai.Bara) {
-            indices = append(indices, index)
+        // 半角アルファベットの場合
+        if char >= 'a' && char <= 'n' {
+            index := int(char - 'a')
+            if index >= 0 && index < len(m.Player1.Tehai.Bara) {
+                indices = append(indices, index)
+            }
         }
     }
     
@@ -496,10 +534,21 @@ func (m *Model) CreateGroup(buffer string) Model {
     
     // Groupsに追加
     m.Player1.Tehai.Groups = append(m.Player1.Tehai.Groups, group)
+
+	// Trueなら単語として辞書登録
+	if group.Comp == true {
+		if _, exist := m.WordDic[group.Word]; !exist {
+			m.WordDic[group.Word] = &Word{
+				Text: group.Word,
+				Pais: group.Pais,
+			}
+		}
+	}
     
     return *m
 }
 
+/*
 // View()で入力バッファを表示
 func (m Model) View() string {
     var s strings.Builder
@@ -515,6 +564,10 @@ func (m Model) View() string {
     return s.String()
 }
 
+
+*/
+
+/*
 // より視覚的に表示する例
 func (m Model) View() string {
     var s strings.Builder
@@ -552,3 +605,5 @@ func (m Model) View() string {
     
     return s.String()
 }
+
+*/
