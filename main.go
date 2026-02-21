@@ -247,6 +247,7 @@ func (m Model) View() string {
     s.WriteString("\n")
     
 	menu := ""
+	menu2 := ""
 	switch m.Phase {
 	case "ツモ前":
 		menu = "１：ツモ"
@@ -258,11 +259,12 @@ func (m Model) View() string {
 		menu = "１：スルー　アルファベット：捨て牌"
 	case "グループ化":
 		menu = "１：終了　アルファベット：選択"
+		menu2 = m.InputBuffer
 	case "単語化？":
 		menu = "Ｙ：単語登録　その他：グループ化のみ" 
 	}
 	s.WriteString(textStyle.Render(fmt.Sprintf("%s\n", menu)))
-    
+	s.WriteString(textStyle.Render(fmt.Sprintf("%s\n", menu2)))
     s.WriteString("\n\n\n")
     
 
@@ -516,15 +518,17 @@ func (m *Model) CreateGroup(buffer string, comp bool) Model {
         }
     }
     
+
+    for _, index := range indices {
+        pai := m.Player1.Tehai.Bara[index]
+        group.Pais = append(group.Pais, pai)
+        group.Word += pai
+	}
     // インデックスを降順にソート（後ろから削除するため）
     sort.Sort(sort.Reverse(sort.IntSlice(indices)))
     
     // 選択された牌をGroupに追加して、Baraから削除
     for _, index := range indices {
-        pai := m.Player1.Tehai.Bara[index]
-        group.Pais = append(group.Pais, pai)
-        group.Word += pai
-        
         // Baraから削除
         m.Player1.Tehai.Bara = append(
             m.Player1.Tehai.Bara[:index],
