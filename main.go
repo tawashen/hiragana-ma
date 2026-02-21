@@ -45,6 +45,7 @@ type Model struct {
     TumoHai string
 	Alphabet []string
 	InputBuffer string
+	ChoiceIndex []int
 }
 
 type Player struct {
@@ -210,6 +211,7 @@ func initialModel() Model {
 		TumoHai: "",
 		Alphabet: []string{},  // 誤: "" → 正: []string{}（空のスライス）
 		InputBuffer: "",
+		ChoiceIndex: []int{},
 		}
 
 		return m
@@ -256,10 +258,12 @@ func (m Model) View() string {
 		//つまり単語登録は上がった時にのみまとめて登録されるようにしないといかんか
 		//チー？の後はツモ出来ずに次のプレイヤーへ？
 	case "ツモ中":
-		menu = "１：スルー　アルファベット：捨て牌"
+		menu = "１：スルー　アルファベット：捨て牌　２：バラし"
 	case "グループ化":
-		menu = "１：終了　アルファベット：選択"
-		menu2 = m.InputBuffer
+		menu = "１：終了　アルファベット：選択　２：バラし"
+		for _, index := range m.ChoiceIndex {
+			menu2 += m.Player1.Tehai.Bara[index]
+		}
 	case "単語化？":
 		menu = "Ｙ：単語登録　その他：グループ化のみ" 
 	}
@@ -281,9 +285,12 @@ func (m Model) View() string {
 
 	// 修正: 選択用アルファベットを1つずつ表示
 	alphabetBuilder := strings.Builder{}
-	for _, alpha := range m.Alphabet {
+	for index, alpha := range m.Alphabet {
 		alphabetBuilder.WriteString(paiStyle.Render(alpha))
 		alphabetBuilder.WriteString(" ")
+		if index == len(m.Player1.Tehai.Bara) -1 {
+			break
+		}
 	}
 	s.WriteString(alphabetBuilder.String())
 	s.WriteString("\n")
@@ -375,6 +382,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "y", "Y":
 				m = m.CreateGroup(m.InputBuffer, true)
 				m.InputBuffer = ""
+				m.ChoiceIndex = []int{}
 				m.Phase = "グループ化"
 				return m, nil
 
@@ -406,15 +414,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "backspace":
 				if len(m.InputBuffer) > 0 {
 					m.InputBuffer = m.InputBuffer[:len(m.InputBuffer)-1]
+					m.ChoiceIndex = m.ChoiceIndex[:len(m.ChoiceIndex) -1]
 				}
 				return m, nil
 			
 			default:
-           		key := msg.String()
-				for _, alpha := range m.Alphabet {
+			    key := msg.String()
+    // 1文字の半角アルファベットかチェック
+    			if len(key) == 1 {
+        			char := rune(key[0])
+        // 'a'から始まるインデックスを計算
+        			index := int(char - 'a')
+        // 範囲内かチェック（0以上、かつBaraの長さ未満）
+        			if index >= len(m.Player1.Tehai.Bara) {
+            return m, nil
+        		}
+			}
+
+				for index, alpha := range m.Alphabet {
 					// 修正: alphaは既にstring型
 					if key == alpha {
 						m.InputBuffer += key
+						m.ChoiceIndex = append(m.ChoiceIndex, index)
 						break
 					}
 				}
@@ -500,6 +521,7 @@ func (m Model) Init() tea.Cmd {
 // バッファの内容から面子を作る
 func (m *Model) CreateGroup(buffer string, comp bool) Model {
 
+	//m.ChoiceIndex = []int{}
     group := Group{
         Word: "",
         Pais: []string{},
@@ -518,6 +540,7 @@ func (m *Model) CreateGroup(buffer string, comp bool) Model {
         }
     }
     
+	//m.ChoiceIndex = indices //選択中牌の表示用Index
 
     for _, index := range indices {
         pai := m.Player1.Tehai.Bara[index]
