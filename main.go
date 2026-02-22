@@ -235,6 +235,75 @@ func (m *Model) haipai() Model {
 }
 
 
+var (
+	textStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#000000"))
+	playerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Background(lipgloss.Color("#000000"))
+	//waterStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
+	//mtStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#8B4513"))
+)
+
+	// 基本的な枠付きスタイルの作り方
+var boxStyle = lipgloss.NewStyle().
+    Border(lipgloss.RoundedBorder()). // 角丸の枠
+    BorderForeground(lipgloss.Color("255")). // 枠の色（白）
+    Padding(1, 2) // 内側の余白（上下1、左右2）
+
+var paiStyleWithBorder = lipgloss.NewStyle().
+    Border(lipgloss.NormalBorder()).       // 枠を付ける
+    BorderForeground(lipgloss.Color("240")). // グレーの枠
+    Background(lipgloss.Color("255")).     // 白い背景
+    Foreground(lipgloss.Color("0")).       // 黒い文字
+    Width(2).
+    Align(lipgloss.Center).
+    Bold(true)
+
+	var paiStyle = lipgloss.NewStyle().
+    Background(lipgloss.Color("255")).     // 白い背景
+    Foreground(lipgloss.Color("0")).       // 黒い文字
+    Width(2).                              // 全角1文字分の幅
+    Align(lipgloss.Center).                // 中央揃え
+	//Padding(0, 0).
+	//PaddingRight(1).
+    Bold(true)                             // 太字で見やすく
+
+	// 単語用：同じく白背景に黒文字
+var wordStyle = lipgloss.NewStyle().
+    Background(lipgloss.Color("255")).     // 白い背景
+    Foreground(lipgloss.Color("0")).       // 黒い文字
+    Padding(0, 1).                         // 左右に余白
+    Bold(true)
+
+
+func (m Model) Init() tea.Cmd {
+	m.haipai()
+	return nil
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 func (m Model) View() string {
     var s strings.Builder
@@ -260,8 +329,8 @@ func (m Model) View() string {
 	case "ツモ中":
 		menu = "１：スルー　アルファベット：捨て牌　２：バラし"
 	case "グループ化":
-		menu = "１：終了　アルファベット：選択　２：バラし"
-		for _, index := range m.ChoiceIndex {
+		menu = "１：終了　アルファベット：選択 ２：バラし"
+		for _, index := range m.ChoiceIndex {//選択中の牌を表示
 			menu2 += m.Player1.Tehai.Bara[index]
 		}
 	case "単語化？":
@@ -303,44 +372,6 @@ func (m Model) View() string {
 }
 
 
-var (
-	textStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#000000"))
-	playerStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Background(lipgloss.Color("#000000"))
-	//waterStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FFFF"))
-	//mtStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#8B4513"))
-)
-
-	// 基本的な枠付きスタイルの作り方
-var boxStyle = lipgloss.NewStyle().
-    Border(lipgloss.RoundedBorder()). // 角丸の枠
-    BorderForeground(lipgloss.Color("255")). // 枠の色（白）
-    Padding(1, 2) // 内側の余白（上下1、左右2）
-
-var paiStyleWithBorder = lipgloss.NewStyle().
-    Border(lipgloss.NormalBorder()).       // 枠を付ける
-    BorderForeground(lipgloss.Color("240")). // グレーの枠
-    Background(lipgloss.Color("255")).     // 白い背景
-    Foreground(lipgloss.Color("0")).       // 黒い文字
-    Width(2).
-    Align(lipgloss.Center).
-    Bold(true)
-
-	var paiStyle = lipgloss.NewStyle().
-    Background(lipgloss.Color("255")).     // 白い背景
-    Foreground(lipgloss.Color("0")).       // 黒い文字
-    Width(2).                              // 全角1文字分の幅
-    Align(lipgloss.Center).                // 中央揃え
-	//Padding(0, 0).
-	//PaddingRight(1).
-    Bold(true)                             // 太字で見やすく
-
-	// 単語用：同じく白背景に黒文字
-var wordStyle = lipgloss.NewStyle().
-    Background(lipgloss.Color("255")).     // 白い背景
-    Foreground(lipgloss.Color("0")).       // 黒い文字
-    Padding(0, 1).                         // 左右に余白
-    Bold(true)
-
 
 
 // さらにシンプルに（全角アルファベットの場合）：
@@ -374,6 +405,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
                     return m.DiscardPai(i), nil
                 }
             }
+
+			if key == "2" {
+				//m.Phase = "バラし"
+				return m.BaraBara(), nil
+			}
         }
 
 
@@ -394,12 +430,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		//if m.Phase == "バラし" {
+
+		//}
+
 		if m.Phase == "グループ化" {
 			switch msg.String() {
 			case "1":
 				m.Phase = "ツモ前"
 				m.CurrentPlayer = 1
 				return m, nil
+
+			case "2": 
+				//m.Phase = "バラし"
+				return m.BaraBara(), nil
+			
 
 			case "enter":
 				//if len(m.InputBuffer) == 3 {
@@ -448,6 +493,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 func (m *Model) DiscardPai(index int) Model {
 	m.Player1.Tehai.Bara = append(m.Player1.Tehai.Bara[:index], m.Player1.Tehai.Bara[index+1:]...)
 	// 修正: TumoHaiは既にstring型なのでそのまま追加
@@ -464,15 +533,8 @@ func (m *Model) Tumo() Model {
     m.TumoHai = m.Yama[0]
 	m.Yama = m.Yama[1:]
 
-    // 修正: 半角アルファベットを使用（キーボード入力に対応）
-    alphabet := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
-    
-    ab := []string{}
-    for i := range m.Player1.Tehai.Bara {
-        ab = append(ab, alphabet[i])
-    }
-    
-    m.Alphabet = ab  // 選択表示用アルファベット文字列スライス
+	m.updateAlphabet()
+
 	return *m
 }
 
@@ -492,29 +554,6 @@ func (m *Model) MakeWord() Model {
     return *m
 }
 
-
-func (m Model) Init() tea.Cmd {
-	m.haipai()
-	return nil
-}
-
-
-/*
-ツモ前
-　１：ツモ　２：単語作り
-　　ツモ　メソッド　→ツモ後
-　　単語作り　メソッド　→ツモ前
-
-ツモ後
-　１：捨て牌　２：単語作り　３：上がり
-　捨て牌
-　　１：捨て牌選び　２：単語作り
-　　　捨て牌選び　メソッド　→単語作り
-　単語作り　メソッド　
-　　１：A~H？（数による）　２：終了
-　上がり　メソッド
-
-*/
 
 
 
@@ -575,62 +614,28 @@ func (m *Model) CreateGroup(buffer string, comp bool) Model {
     return *m
 }
 
-/*
-// View()で入力バッファを表示
-func (m Model) View() string {
-    var s strings.Builder
-    
-    // ... 他の表示 ...
-    
-    if m.Phase == "グループ化" {
-        s.WriteString("\n選択中: ")
-        s.WriteString(m.InputBuffer)  // 入力中の文字を表示（例: "abc"）
-        s.WriteString("\n(Enter: 確定, Backspace: 削除, Esc: キャンセル)")
-    }
-    
-    return s.String()
+
+func (m *Model) BaraBara() Model {
+	for _, group := range m.Player1.Tehai.Groups {
+		for _, pai := range group.Pais {
+			m.Player1.Tehai.Bara = append(m.Player1.Tehai.Bara, pai)
+		}
+	}
+	m.Player1.Tehai.Groups = []Group{}
+
+	m.updateAlphabet()
+	
+	return *m
 }
 
-
-*/
-
-/*
-// より視覚的に表示する例
-func (m Model) View() string {
-    var s strings.Builder
-    
-    if m.Phase == "グループ化" {
-        // 牌を表示（選択中のものをハイライト）
-        for i, pai := range m.Player1.Tehai.Bara {
-            alpha := string(rune('a' + i))
-            
-            // InputBufferに含まれているかチェック
-            isSelected := false
-            for _, char := range m.InputBuffer {
-                if string(char) == alpha {
-                    isSelected = true
-                    break
-                }
-            }
-            
-            if isSelected {
-                // 選択中は色を変える
-                selectedStyle := lipgloss.NewStyle().
-                    Background(lipgloss.Color("86")).  // 水色背景
-                    Foreground(lipgloss.Color("0")).
-                    Bold(true)
-                s.WriteString(selectedStyle.Render(pai))
-            } else {
-                s.WriteString(paiStyle.Render(pai))
-            }
-            s.WriteString(" ")
+// Alphabetを更新するヘルパーメソッド
+func (m *Model) updateAlphabet() {
+    alphabet := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
+    ab := []string{}
+    for i := range m.Player1.Tehai.Bara {
+        if i < len(alphabet) {
+            ab = append(ab, alphabet[i])
         }
-        
-        s.WriteString("\n\n選択: " + m.InputBuffer)
-        s.WriteString("\n(Enter: 確定)")
     }
-    
-    return s.String()
+    m.Alphabet = ab
 }
-
-*/
