@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"sort" // 修正: CreateGroup関数でsort.Sortを使用しているため追加
+	"sort"
+	"strconv" // 修正: strconv.Atoiを使用するため追加
 	"strings"
-	//"strconv"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -46,7 +47,12 @@ type Model struct {
 	Alphabet []string
 	InputBuffer string
 	ChoiceIndex []int
+	YakuBuffer *Yaku
+	YakuNameInput textinput.Model
+	ScoreInput textinput.Model
+
 }
+
 
 type Player struct {
 	Name string
@@ -198,6 +204,19 @@ func initialModel() Model {
 //	m.haipai()
 
 
+//全角入力用初期化下ごしらえ
+	yakuInput := textinput.New()
+	yakuInput.Placeholder = "役名を入力"
+	yakuInput.Focus()
+	yakuInput.CharLimit = 20
+	yakuInput.Width = 30
+
+	scoreInput := textinput.New()
+	scoreInput.Placeholder = "得点を入力"
+	scoreInput.CharLimit = 5
+	scoreInput.Width = 10
+
+
 	m := Model{
 		Player1: &player1,
 		Player2: &player2,
@@ -212,6 +231,9 @@ func initialModel() Model {
 		Alphabet: []string{},  // 誤: "" → 正: []string{}（空のスライス）
 		InputBuffer: "",
 		ChoiceIndex: []int{},
+		YakuBuffer: nil,
+		YakuNameInput: yakuInput,
+		ScoreInput: scoreInput,
 		}
 
 		return m
@@ -329,17 +351,32 @@ func (m Model) View() string {
 	case "ツモ中":
 		menu = "１：スルー　アルファベット：捨て牌　２：バラし"
 	case "グループ化":
-		menu = "１：終了　アルファベット：選択 ２：バラし"
+		menu = "１：終了　アルファベット：選択 ２：バラし ３：あがり！"
 		for _, index := range m.ChoiceIndex {//選択中の牌を表示
 			menu2 += m.Player1.Tehai.Bara[index]
 		}
 	case "単語化？":
 		menu = "Ｙ：単語登録　その他：グループ化のみ" 
+	case "あがり":
+		menu = "１：役名　２：得点　３：登録"
+	case "役名入力":
+		menu = "Enter：確定　Esc：キャンセル"
+	case "得点入力":
+		menu = "Enter：確定　Esc：キャンセル"
 	}
 	s.WriteString(textStyle.Render(fmt.Sprintf("%s\n", menu)))
-	s.WriteString(textStyle.Render(fmt.Sprintf("%s\n", menu2)))
     s.WriteString("\n\n\n")
-    
+
+	if menu2 != "" {
+		s.WriteString(textStyle.Render(fmt.Sprintf("%s\n", menu2)))
+		s.WriteString("\n\n")
+	}
+
+    if m.YakuBuffer != nil {
+		s.WriteString(textStyle.Render(fmt.Sprintf("役名：%s　得点：%d\n", m.YakuBuffer.Name, m.YakuBuffer.Score))) // 修正: m.Yaku → m.YakuBuffer
+		s.WriteString("\n\n")
+
+	}
 
     kawaBuilder := strings.Builder{}
     for _, pai := range m.Player1.Tehai.Bara {
@@ -376,12 +413,62 @@ func (m Model) View() string {
 
 // さらにシンプルに（全角アルファベットの場合）：
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
+	var cmd tea.Cmd
+
     switch msg := msg.(type) {
     case tea.KeyMsg:
         switch msg.String() {
         case "ctrl+c", "q", "esc":
             return m, tea.Quit
         }
+
+		if m.Phase == "役名入力" {
+			switch msg.String() {
+			case "enter":
+				m.Phase = "得点入力"
+				//BlurでFocusを外す
+				m.YakuNameInput.Blur()
+				m.ScoreInput.Focus() // 修正: Forcus → Focus
+				return m, nil // 修正: retrun → return
+		
+			case "esc":
+				m.Phase = "グループ化" // 修正: Pahse → Phase
+				return m, nil
+			}
+
+			m.YakuNameInput, cmd = m.YakuNameInput.Update(msg)
+			return m, cmd // 修正: retrun → return
+		}
+
+		if m.Phase == "得点入力" {
+			switch msg.String() {
+			case "enter":
+				yakuName := m.YakuNameInput.Value()
+				score, _ := strconv.Atoi(m.ScoreInput.Value()) // 修正: m.strconv → strconv
+
+				m.YakuDic[yakuName] = &Yaku{ // 修正: yakuname → yakuName
+					Name: yakuName, // 修正: yakuname → yakuName
+					Score: score, // 修正: score. → score,
+				}
+
+				m.YakuNameInput.SetValue("")
+				m.ScoreInput.SetValue("")
+				m.Phase = "ツモ前"
+				m.Turn = 1
+				return m, nil // 修正: retun → return
+
+			case "esc":
+				m.Phase = "役名入力"
+				m.ScoreInput.Blur()
+				m.YakuNameInput.Focus()
+				return m, nil
+			}
+
+			m.ScoreInput, cmd = m.ScoreInput.Update(msg)
+			return m, cmd
+		}
+	
         
         if m.Phase == "ツモ前" {
             switch msg.String() {
@@ -430,9 +517,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		//if m.Phase == "バラし" {
+		if m.Phase == "あがり" {
+			switch msg.String()	{
+			case "1":
 
-		//}
+
+			}	
+		}
+
 
 		if m.Phase == "グループ化" {
 			switch msg.String() {
@@ -444,6 +536,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "2": 
 				//m.Phase = "バラし"
 				return m.BaraBara(), nil
+
+			case "3":
+				if m.IsAgari() {
+					m.Phase = "役名入力" // 修正: Agariメソッドを呼ばずに直接フェーズ変更
+					m.YakuNameInput.Focus()
+					return m, nil
+				}
+
+				return m, nil
 			
 
 			case "enter":
@@ -638,4 +739,16 @@ func (m *Model) updateAlphabet() {
         }
     }
     m.Alphabet = ab
+}
+
+func (m *Model) IsAgari() bool {
+
+	if len(m.Player1.Tehai.Bara) == 0 {
+		return true // 修正: retrun → return
+	}
+
+	//本番ではYakuDicに適合するかもチェックする
+
+	return false
+
 }
