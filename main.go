@@ -242,11 +242,11 @@ func initialModel() Model {
 
 
 func (m *Model) haipai() Model {
-	for i := 0; i < 13; i++ {
+	for i := 0; i < 12; i++ {
 		m.Player1.Tehai.Bara = append(m.Player1.Tehai.Bara, m.Yama[i])
 		//m.Yamaからindexの要素を削除する。本当は直接YamaからTehai.Baraに移動できたらてっとり早いが
 	}
-	for i := 0; i < 13; i++ {
+	for i := 0; i < 12; i++ {
 		m.Player2.Tehai.Bara = append(m.Player2.Tehai.Bara, m.Yama[i])
 	    //Playersにしてなかったのでイテレート出来ないｗ
 	}
@@ -330,6 +330,22 @@ func (m Model) Init() tea.Cmd {
 func (m Model) View() string {
     var s strings.Builder
     
+// 登録済み単語を表示
+    if len(m.WordDic) > 0 {
+        s.WriteString("\n登録済み単語:\n")
+        for _, word := range m.WordDic {
+            s.WriteString(fmt.Sprintf("  %s\n", word.Text))
+        }
+    }
+    
+    // 登録済み役を表示
+    if len(m.YakuDic) > 0 {
+        s.WriteString("\n登録済み役:\n")
+        for _, yaku := range m.YakuDic {
+            s.WriteString(fmt.Sprintf("  %s (%d点)\n", yaku.Name, yaku.Score))
+        }
+    }
+
     s.WriteString(playerStyle.Render("Player2 information\n")) 
     s.WriteString(textStyle.Render("Player2 river\n"))
     s.WriteString("\n\n\n")
@@ -398,8 +414,11 @@ func (m Model) View() string {
 			break
 		}
 	}
+
+	if len(m.Player1.Tehai.Bara) != 0 {
 	s.WriteString(alphabetBuilder.String())
 	s.WriteString("\n")
+	}
 	
     
     s.WriteString(kawaBuilder.String())
@@ -644,7 +663,7 @@ func (m *Model) MakeWord() Model {
     m.Phase = "グループ化"  // のための文字列スライスをModelに埋める
     
     // 修正: 半角アルファベットを使用（キーボード入力に対応）
-    alphabet := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
+    alphabet := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"}
     
     ab := []string{}
     for i := range m.Player1.Tehai.Bara {
@@ -731,7 +750,7 @@ func (m *Model) BaraBara() Model {
 
 // Alphabetを更新するヘルパーメソッド
 func (m *Model) updateAlphabet() {
-    alphabet := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n"}
+    alphabet := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"}
     ab := []string{}
     for i := range m.Player1.Tehai.Bara {
         if i < len(alphabet) {
